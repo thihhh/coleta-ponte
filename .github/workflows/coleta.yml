@@ -1,8 +1,14 @@
 # Coleta das condições da Ponte Rio-Niterói.
-# Disparado pelo cron-job.org (dias úteis) via API workflow_dispatch.
-# Repositório público: minutos do Actions sem limite.
+# Disparado pelo cron-job.org (a cada 5 min, todos os dias) via API
+# workflow_dispatch. Repositório público: minutos do Actions sem limite.
 # Segredos necessários (Settings > Secrets and variables > Actions):
 #   FIREBASE_DB_URL  e  PONTE_TOKEN
+#
+# A Ecovias (Akamai) recusa com 403 alguns endereços das máquinas do
+# GitHub. Cada job roda numa máquina nova: se a primeira levar 403, a
+# segunda tenta, depois a terceira. Só a última grava a falha. Quando a
+# 1ª falha e a 2ª dá certo, o workflow aparece vermelho mesmo assim
+# (a leitura foi gravada; vale o resultado do último job que rodou).
 name: Coleta da Ponte
 
 on:
@@ -12,17 +18,41 @@ concurrency:
   group: coleta
   cancel-in-progress: false
 
+env:
+  FIREBASE_DB_URL: ${{ secrets.FIREBASE_DB_URL }}
+  PONTE_TOKEN: ${{ secrets.PONTE_TOKEN }}
+
 jobs:
-  coletar:
+  tentativa1:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 4
     steps:
       - uses: actions/checkout@v5
       - uses: dart-lang/setup-dart@v1
-      - name: Coletar
+      - run: dart pub get && dart run bin/coletar.dart
         env:
-          FIREBASE_DB_URL: ${{ secrets.FIREBASE_DB_URL }}
-          PONTE_TOKEN: ${{ secrets.PONTE_TOKEN }}
-        run: |
-          dart pub get
-          dart run bin/coletar.dart
+          ULTIMA_TENTATIVA: '0'
+
+  tentativa2:
+    needs: tentativa1
+    if: failure() && needs.tentativa1.result == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dart-lang/setup-dart@v1
+      - run: dart pub get && dart run bin/coletar.dart
+        env:
+          ULTIMA_TENTATIVA: '0'
+
+  tentativa3:
+    needs: tentativa2
+    if: failure() && needs.tentativa2.result == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dart-lang/setup-dart@v1
+      - run: dart pub get && dart run bin/coletar.dart
+        env:
+          ULTIMA_TENTATIVA: '1'

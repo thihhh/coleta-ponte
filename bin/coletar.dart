@@ -26,6 +26,9 @@ Future<String?> _consultar() async {
       final corpo = await resp.transform(utf8.decoder).join().timeout(const Duration(seconds: 20));
       stdout.writeln('Tentativa $tentativa: HTTP ${resp.statusCode}, ${corpo.length} bytes');
       if (resp.statusCode == 200) return corpo;
+      // 403 é o bloqueio da Akamai a ESTE endereço: repetir na mesma máquina
+      // não adianta. Quem tenta de novo é o próximo job, noutra máquina.
+      if (resp.statusCode == 403) return null;
     } catch (e) {
       stdout.writeln('Tentativa $tentativa falhou: $e');
     } finally {
@@ -66,6 +69,14 @@ Future<void> main() async {
   final db = Platform.environment['FIREBASE_DB_URL'];
   final token = Platform.environment['PONTE_TOKEN'];
 
+  // ULTIMA_TENTATIVA=1 só no último job do workflow. Os anteriores, sem
+  // resposta, saem com erro sem gravar nada (o próximo job tenta noutra
+  // máquina); só o último registra a falha.
+  final ultima = Platform.environment['ULTIMA_TENTATIVA'] != '0';
+  if (corpo == null && !ultima) {
+    stdout.writeln('Sem resposta nesta máquina; o próximo job tenta de novo.');
+    exit(1);
+  }
   Map<String, Object?> leitura;
   if (corpo == null) {
     // Registra a falha também: um buraco explicado vale mais que um buraco mudo.
