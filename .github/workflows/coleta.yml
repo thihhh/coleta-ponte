@@ -1,0 +1,28 @@
+# Coleta das condições da Ponte Rio-Niterói.
+# Disparado pelo cron-job.org (dias úteis) via API workflow_dispatch.
+# Repositório público: minutos do Actions sem limite.
+# Segredos necessários (Settings > Secrets and variables > Actions):
+#   FIREBASE_DB_URL  e  PONTE_TOKEN
+name: Coleta da Ponte
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: coleta
+  cancel-in-progress: false
+
+jobs:
+  coletar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dart-lang/setup-dart@v1
+      - name: Coletar
+        env:
+          FIREBASE_DB_URL: ${{ secrets.FIREBASE_DB_URL }}
+          PONTE_TOKEN: ${{ secrets.PONTE_TOKEN }}
+        run: |
+          dart pub get
+          dart run bin/coletar.dart

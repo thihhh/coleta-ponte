@@ -1,0 +1,5 @@
+name: coleta_ponte
+description: Coleta periódica das condições da Ponte Rio-Niterói (GitHub Actions).
+publish_to: none
+environment:
+  sdk: ^3.5.0
