@@ -6,9 +6,8 @@
 #
 # A Ecovias (Akamai) recusa com 403 alguns endereços das máquinas do
 # GitHub. Cada job roda numa máquina nova: se a primeira levar 403, a
-# segunda tenta, depois a terceira. Só a última grava a falha. Quando a
-# 1ª falha e a 2ª dá certo, o workflow aparece vermelho mesmo assim
-# (a leitura foi gravada; vale o resultado do último job que rodou).
+# segunda tenta, depois a terceira. Só a última grava a falha, e só ela
+# deixa a execução vermelha (= e-mail do GitHub só quando as 3 falham).
 name: Coleta da Ponte
 
 on:
@@ -25,34 +24,41 @@ env:
 jobs:
   tentativa1:
     runs-on: ubuntu-latest
+    outputs:
+      ok: ${{ steps.coleta.outputs.ok }}
     timeout-minutes: 4
     steps:
       - uses: actions/checkout@v5
       - uses: dart-lang/setup-dart@v1
-      - run: dart pub get && dart run bin/coletar.dart
+      - id: coleta
+        run: dart pub get && dart run bin/coletar.dart
         env:
           ULTIMA_TENTATIVA: '0'
 
   tentativa2:
     needs: tentativa1
-    if: failure() && needs.tentativa1.result == 'failure'
+    if: needs.tentativa1.outputs.ok != 'true'
     runs-on: ubuntu-latest
+    outputs:
+      ok: ${{ steps.coleta.outputs.ok }}
     timeout-minutes: 4
     steps:
       - uses: actions/checkout@v5
       - uses: dart-lang/setup-dart@v1
-      - run: dart pub get && dart run bin/coletar.dart
+      - id: coleta
+        run: dart pub get && dart run bin/coletar.dart
         env:
           ULTIMA_TENTATIVA: '0'
 
   tentativa3:
-    needs: tentativa2
-    if: failure() && needs.tentativa2.result == 'failure'
+    needs: [tentativa1, tentativa2]
+    if: always() && needs.tentativa1.outputs.ok != 'true' && needs.tentativa2.outputs.ok != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
       - uses: actions/checkout@v5
       - uses: dart-lang/setup-dart@v1
-      - run: dart pub get && dart run bin/coletar.dart
+      - id: coleta
+        run: dart pub get && dart run bin/coletar.dart
         env:
           ULTIMA_TENTATIVA: '1'

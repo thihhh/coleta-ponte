@@ -63,6 +63,12 @@ Map<String, Object?> _leitura(CondicoesPonte c, DateTime coletadoEm) => {
       ],
     };
 
+/// Escreve uma saída do job (lida pelo próximo job em `needs.X.outputs`).
+void _saida(String nome, String valor) {
+  final arq = Platform.environment['GITHUB_OUTPUT'];
+  if (arq != null) File(arq).writeAsStringSync('$nome=$valor\n', mode: FileMode.append);
+}
+
 Future<void> main() async {
   final agora = DateTime.now();
   final corpo = await _consultar();
@@ -75,7 +81,8 @@ Future<void> main() async {
   final ultima = Platform.environment['ULTIMA_TENTATIVA'] != '0';
   if (corpo == null && !ultima) {
     stdout.writeln('Sem resposta nesta máquina; o próximo job tenta de novo.');
-    exit(1);
+    _saida('ok', 'false');
+    exit(0); // sem marcar falha: o e-mail do GitHub só vem se as 3 falharem
   }
   Map<String, Object?> leitura;
   if (corpo == null) {
@@ -105,4 +112,5 @@ Future<void> main() async {
     cliente.close(force: true);
   }
   if (corpo == null) exit(1);
+  _saida('ok', 'true');
 }
