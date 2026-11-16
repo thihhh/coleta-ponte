@@ -13,10 +13,6 @@ name: Coleta da Ponte
 on:
   workflow_dispatch:
 
-concurrency:
-  group: coleta
-  cancel-in-progress: false
-
 env:
   FIREBASE_DB_URL: ${{ secrets.FIREBASE_DB_URL }}
   PONTE_TOKEN: ${{ secrets.PONTE_TOKEN }}
